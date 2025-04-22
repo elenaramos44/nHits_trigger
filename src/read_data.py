@@ -50,7 +50,6 @@ def process_and_write_parts(run_files, good_parts, mcc_map, max_card, max_chan, 
         corrected_times = term1 + term2 + term3 + corrections
 
         # Save to Disk
-        # Need Snappy Conversion For Swan Usage
         ak.to_parquet(file_hit_card_ids,     f"{outdir}/card_ids_part{i}.parquet")
         ak.to_parquet(file_hit_channel_ids,  f"{outdir}/channel_ids_part{i}.parquet")
         ak.to_parquet(file_hit_charges,      f"{outdir}/charges_part{i}.parquet")
