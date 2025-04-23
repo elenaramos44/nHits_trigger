@@ -1,6 +1,7 @@
 import glob
 import os
 import uproot
+import json
 
 import awkward as ak
 import numpy   as np
@@ -15,6 +16,7 @@ def read_file(files, parts, evt_offset):
     file_hit_channel_ids = ak.values_astype(tree["hit_pmt_channel_ids"].array(), np.int64)
     file_hit_times       = ak.values_astype(tree["hit_pmt_times"]      .array(), np.int64)
     file_hit_charges     = ak.values_astype(tree["hit_pmt_charges"]    .array(), np.int64)
+    window_time          = ak.values_astype(tree["window_time"]        .array(), np.int64)
     event_number         = ak.values_astype(tree["event_number"]       .array(), np.int64)
 
     # Number of hits per event
@@ -22,16 +24,18 @@ def read_file(files, parts, evt_offset):
 
     # Create the repeated event array
     file_event_number = np.repeat(event_number, n_hits_per_event) + evt_offset
+    file_window_time  = np.repeat(window_time, n_hits_per_event)
     file_event_number = ak.unflatten(file_event_number, n_hits_per_event)
+    file_window_time  = ak.unflatten(file_window_time, n_hits_per_event)
 
-    return file_hit_card_ids, file_hit_channel_ids, file_hit_times, file_hit_charges, file_event_number
+    return file_hit_card_ids, file_hit_channel_ids, file_hit_times, file_hit_charges, file_event_number, file_window_time
 
 def process_and_write_parts(run_files, good_parts, mcc_map, max_card, max_chan, outdir="tmp_parquet"):
     os.makedirs(outdir, exist_ok=True)
     evt_offset = 0
 
-    for i, part in enumerate(tqdm(good_parts, desc="Procesando partes")):
-        file_hit_card_ids, file_hit_channel_ids, file_hit_times, file_hit_charges, file_event_number = read_file(run_files, part, evt_offset)
+    for i, part in enumerate(tqdm(good_parts, desc="Processing parts")):
+        file_hit_card_ids, file_hit_channel_ids, file_hit_times, file_hit_charges, file_event_number, file_window_time = read_file(run_files, part, evt_offset)
 
         # Build lookup
         lookup = np.zeros((max_card + 1, max_chan + 1))
@@ -45,9 +49,11 @@ def process_and_write_parts(run_files, good_parts, mcc_map, max_card, max_chan, 
         corrections       = ak.unflatten(flat_corrections, ak.num(file_hit_card_ids))
 
         term1 = file_hit_times
-        term2 = (file_event_number // 512) * (2**35)
-        term3 = ((file_event_number % 512 == 511) & (file_hit_times < 2**34)) * (2**35)
-        corrected_times = term1 + term2 + term3 + corrections
+        # term2 = (file_event_number // 512) * (2**35)
+        # term3 = ((file_event_number % 512 == 511) & (file_hit_times < 2**34)) * (2**35)
+        term4 = file_window_time
+        # corrected_times = term1 + term2 + term3 + corrections
+        corrected_times = term1 + term4 + corrections 
 
         # Save to Disk
         ak.to_parquet(file_hit_card_ids,     f"{outdir}/card_ids_part{i}.parquet")
@@ -70,3 +76,32 @@ def load_concatenated(outdir="./tmp_parquet"):
         "event_number":    load("event_number_part*.parquet"),
         "hit_times":       load("hit_times_part*.parquet"),
     }
+
+def read_mcc_offsets(path='/eos/home-d/dcostasr/SWAN_projects/NiCf/offline_trigger/mmc_map_R1609.json'):
+    with open(path) as f:
+        mcc_map = json.load(f)
+
+        d = {}
+        for k,v in zip(mcc_map.keys(), mcc_map.values()):
+            card, channel = [int(i) for i in str(int(k)/100).split(".")]
+            d[(card, channel)] = v
+
+    return d
+
+def read_parquet(data, mask=True):
+    
+    if mask:
+        run_cards = data["card_ids"]
+        mask      = (run_cards != 130) & (run_cards != 131) & (run_cards != 132)
+        run_cards   = data["card_ids"][mask]
+        run_times   = data["hit_times"][mask]   
+        run_events  = data["event_number"][mask]
+        run_charges = data["charges"][mask] 
+
+    else:
+        run_cards   = data["card_ids"]    
+        run_times   = data["hit_times"]      
+        run_events  = data["event_number"]
+        run_charges = data["charges"]      
+
+    return run_cards, run_times, run_events, run_charges
