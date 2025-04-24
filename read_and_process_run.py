@@ -29,7 +29,7 @@ if parts_to_process.strip().lower() == "all":
 # Case: input just one number, e.g. "3"
 elif parts_to_process.isdigit():
     part_idx = int(parts_to_process)
-    process_and_write_parts(run_files, part_files[part_idx], mcc_map, max_card=132, max_chan=19, outdir=f"tmp_parquet/{run}/")
+    process_and_write_parts(run_files, [part_idx], mcc_map, max_card=132, max_chan=19, outdir=f"tmp_parquet/{run}/")
 
 # Case: comma separated list of numbers, e.g. "1,2,5"
 else:
