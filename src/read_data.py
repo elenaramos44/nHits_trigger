@@ -105,3 +105,56 @@ def read_parquet(data, mask=True):
         run_charges = data["charges"]      
 
     return run_cards, run_times, run_events, run_charges
+
+def nHits(hit_times, w, t, pre_window, post_window, jump):
+    nevents = len(hit_times)
+    triggered_hits_index = {}
+
+    # w = 500            # ns
+    # t = 10             # hits
+    # pre_window  = 10000 # ns
+    # post_window = 10000 # ns
+    # jump = 15000       # ns Trigger dead time (expected time between events)
+
+    # Run the algorithm for every readout window
+    for event in tqdm(range(nevents), total=nevents):
+        ht = ak.to_numpy(hit_times[event])
+        if len(ht) == 0: # Skip if event empty
+            continue
+        
+        # Count hits in window
+        ends   = ht + w
+        right  = np.searchsorted(ht, ends, side="left")
+        left   = np.arange(len(ht))
+        counts = right - left
+
+        # Get the indices of all the hit times that triggered the nHits algorithm
+        trigger_indices = np.where(counts > t)[0]
+        if len(trigger_indices) == 0: # Skip if no triggers in event
+            continue
+
+        event_hits = []
+        last_trigger_time = -np.inf  # First trigger always need to exist
+
+        # Search for the rest of the hits in the trigger
+        for idx in trigger_indices:
+            time_triggered = ht[idx]
+
+            # If we are inside the dead time, ignore this trigger
+            if time_triggered < last_trigger_time + jump:
+                continue
+
+            # Window centered in the first hit that trigger the algorithm
+            t_min = time_triggered - pre_window
+            t_max = time_triggered + post_window
+            indices_in_window = np.where((ht >= t_min) & (ht < t_max))[0]
+            event_hits.append(indices_in_window) # Append hit_times of the trigger
+
+            # Update last valid trigger time
+            last_trigger_time = time_triggered
+
+        # Update dictionary
+        if len(event_hits) > 0:
+            triggered_hits_index[event] = event_hits
+
+    return triggered_hits_index
