@@ -12,12 +12,14 @@ def read_file(files, parts, evt_offset):
     tree = uproot.open(files[parts] + ":WCTEReadoutWindows")
     
     # Read the variables
-    file_hit_card_ids    = ak.values_astype(tree["hit_mpmt_card_ids"]  .array(), np.int64)
-    file_hit_channel_ids = ak.values_astype(tree["hit_pmt_channel_ids"].array(), np.int64)
-    file_hit_times       = ak.values_astype(tree["hit_pmt_times"]      .array(), np.int64)
-    file_hit_charges     = ak.values_astype(tree["hit_pmt_charges"]    .array(), np.int64)
-    window_time          = ak.values_astype(tree["window_time"]        .array(), np.int64)
-    event_number         = ak.values_astype(tree["event_number"]       .array(), np.int64)
+    file_hit_card_ids     = ak.values_astype(tree["hit_mpmt_card_ids"]   .array(), np.int16)
+    file_hit_channel_ids  = ak.values_astype(tree["hit_pmt_channel_ids"] .array(), np.int8)
+    file_hit_times        = ak.values_astype(tree["hit_pmt_times"]       .array(), np.float64)
+    file_hit_charges      = ak.values_astype(tree["hit_pmt_charges"]     .array(), np.float64)
+    file_hit_slot_ids     = ak.values_astype(tree["hit_mpmt_slot_ids"]   .array(), np.int16)
+    file_hit_position_ids = ak.values_astype(tree["hit_pmt_position_ids"].array(), np.int16)
+    window_time           = ak.values_astype(tree["window_time"]         .array(), np.float64)
+    event_number          = ak.values_astype(tree["event_number"]        .array(), np.int64)
 
     # Number of hits per event
     n_hits_per_event = ak.num(file_hit_card_ids)
@@ -28,14 +30,14 @@ def read_file(files, parts, evt_offset):
     file_event_number = ak.unflatten(file_event_number, n_hits_per_event)
     file_window_time  = ak.unflatten(file_window_time, n_hits_per_event)
 
-    return file_hit_card_ids, file_hit_channel_ids, file_hit_times, file_hit_charges, file_event_number, file_window_time
+    return file_hit_card_ids, file_hit_channel_ids, file_hit_times, file_hit_charges, file_event_number, file_window_time, file_hit_slot_ids, file_hit_position_ids
 
 def process_and_write_parts(run_files, good_parts, mcc_map, max_card, max_chan, outdir="tmp_parquet"):
     os.makedirs(outdir, exist_ok=True)
     evt_offset = 0
 
     for i, part in enumerate(tqdm(good_parts, desc="Processing parts")):
-        file_hit_card_ids, file_hit_channel_ids, file_hit_times, file_hit_charges, file_event_number, file_window_time = read_file(run_files, part, evt_offset)
+        file_hit_card_ids, file_hit_channel_ids, file_hit_times, file_hit_charges, file_event_number, file_window_time, file_hit_slot_ids, file_hit_position_ids = read_file(run_files, part, evt_offset)
 
         # Build lookup
         lookup = np.zeros((max_card + 1, max_chan + 1))
@@ -58,6 +60,8 @@ def process_and_write_parts(run_files, good_parts, mcc_map, max_card, max_chan, 
         # Save to Disk
         ak.to_parquet(file_hit_card_ids,     f"{outdir}/card_ids_part{i}.parquet")
         ak.to_parquet(file_hit_channel_ids,  f"{outdir}/channel_ids_part{i}.parquet")
+        ak.to_parquet(file_hit_slot_ids,     f"{outdir}/slot_ids_part{i}.parquet")
+        ak.to_parquet(file_hit_position_ids, f"{outdir}/position_ids_part{i}.parquet")
         ak.to_parquet(file_hit_charges,      f"{outdir}/charges_part{i}.parquet")
         ak.to_parquet(file_event_number,     f"{outdir}/event_number_part{i}.parquet")
         ak.to_parquet(corrected_times,       f"{outdir}/hit_times_part{i}.parquet")
