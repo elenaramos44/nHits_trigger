@@ -74,11 +74,13 @@ def load_concatenated(outdir="./tmp_parquet"):
         return ak.concatenate([ak.from_parquet(f) for f in files], axis=0)
 
     return {
-        "card_ids":        load("card_ids_part*.parquet"),
-        "channel_ids":     load("channel_ids_part*.parquet"),
-        "charges":         load("charges_part*.parquet"),
-        "event_number":    load("event_number_part*.parquet"),
-        "hit_times":       load("hit_times_part*.parquet"),
+        "card_ids":     load("card_ids_part*.parquet"),
+        "channel_ids":  load("channel_ids_part*.parquet"),
+        "slot_ids":     load("slot_ids_part*.parquet"),
+        "position_ids": load("position_ids_part*.parquet"),
+        "charges":      load("charges_part*.parquet"),
+        "event_number": load("event_number_part*.parquet"),
+        "hit_times":    load("hit_times_part*.parquet"),
     }
 
 def read_mcc_offsets(path='/eos/home-d/dcostasr/SWAN_projects/NiCf/offline_trigger/mmc_map_R1609.json'):
@@ -97,18 +99,24 @@ def read_parquet(data, mask=True):
     if mask:
         run_cards = data["card_ids"]
         mask      = (run_cards != 130) & (run_cards != 131) & (run_cards != 132)
-        run_cards   = data["card_ids"][mask]
-        run_times   = data["hit_times"][mask]   
-        run_events  = data["event_number"][mask]
-        run_charges = data["charges"][mask] 
+        run_cards     = data["card_ids"]    [mask]
+        run_channels  = data["channel_ids"] [mask]
+        run_slots     = data["slot_ids"]    [mask]
+        run_positions = data["position_ids"][mask]
+        run_times     = data["hit_times"]   [mask]   
+        run_events    = data["event_number"][mask]
+        run_charges   = data["charges"]     [mask] 
 
     else:
-        run_cards   = data["card_ids"]    
-        run_times   = data["hit_times"]      
-        run_events  = data["event_number"]
-        run_charges = data["charges"]      
+        run_cards     = data["card_ids"]
+        run_channels  = data["channel_ids"] 
+        run_slots     = data["slot_ids"]    
+        run_positions = data["position_ids"]  
+        run_times     = data["hit_times"]      
+        run_events    = data["event_number"]
+        run_charges   = data["charges"]      
 
-    return run_cards, run_times, run_events, run_charges
+    return run_cards, run_channels, run_slots, run_positions, run_times, run_events, run_charges
 
 def nHits(hit_times, w, t, pre_window, post_window, jump):
     nevents = len(hit_times)
