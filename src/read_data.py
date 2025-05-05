@@ -162,7 +162,7 @@ def nHits(hit_times, w, thresh_min, thresh_max, pre_window, post_window, jump, p
             indices_in_window = np.where((ht >= t_min) & (ht <= t_max))[0]
             event_hits.append(indices_in_window)
 
-            last_trigger_time = first_hit_time  # or maybe last_hit_time
+            last_trigger_time = first_hit_time  # or maybe last_hit_time 
 
         # Update dictionary
         if len(event_hits) > 0:
