@@ -118,23 +118,16 @@ def read_parquet(data, mask=True):
 
     return run_cards, run_channels, run_slots, run_positions, run_times, run_events, run_charges
 
-def nHits(hit_times, w, t, pre_window, post_window, jump):
+def nHits(hit_times, w, t, pre_window, post_window, jump, progress_bar=True):
     nevents = len(hit_times)
     triggered_hits_index = {}
 
-    # w = 500            # ns
-    # t = 10             # hits
-    # pre_window  = 10000 # ns
-    # post_window = 10000 # ns
-    # jump = 15000       # ns Trigger dead time (expected time between events)
-
-    # Run the algorithm for every readout window
-    for event in tqdm(range(nevents), total=nevents):
+    for event in tqdm(range(nevents), total=nevents, leave=progress_bar):
         ht = ak.to_numpy(hit_times[event])
-        if len(ht) == 0: # Skip if event empty
+        if len(ht) == 0:
             continue
         
-        # Count hits in window
+        # Sliding window logic
         ends   = ht + w
         right  = np.searchsorted(ht, ends, side="left")
         left   = np.arange(len(ht))
@@ -150,20 +143,26 @@ def nHits(hit_times, w, t, pre_window, post_window, jump):
 
         # Search for the rest of the hits in the trigger
         for idx in trigger_indices:
-            time_triggered = ht[idx]
+            # Define actual sliding window that triggered
+            i_start = idx
+            i_end = right[idx]  # one past the last hit in window
+            window_hits = ht[i_start:i_end]
 
-            # If we are inside the dead time, ignore this trigger
-            if time_triggered < last_trigger_time + jump:
+            first_hit_time = window_hits[0]
+            last_hit_time  = window_hits[-1]
+
+            # Avoid overlap due to dead time
+            if first_hit_time < last_trigger_time + jump:
                 continue
 
-            # Window centered in the first hit that trigger the algorithm
-            t_min = time_triggered - pre_window
-            t_max = time_triggered + post_window
-            indices_in_window = np.where((ht >= t_min) & (ht < t_max))[0]
-            event_hits.append(indices_in_window) # Append hit_times of the trigger
+            # Expand window
+            t_min = first_hit_time - pre_window
+            t_max = last_hit_time + post_window
 
-            # Update last valid trigger time
-            last_trigger_time = time_triggered
+            indices_in_window = np.where((ht >= t_min) & (ht < t_max))[0]
+            event_hits.append(indices_in_window)
+
+            last_trigger_time = first_hit_time  # or maybe last_hit_time
 
         # Update dictionary
         if len(event_hits) > 0:
