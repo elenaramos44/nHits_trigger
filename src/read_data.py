@@ -118,7 +118,7 @@ def read_parquet(data, mask=True):
 
     return run_cards, run_channels, run_slots, run_positions, run_times, run_events, run_charges
 
-def nHits(hit_times, w, t, pre_window, post_window, jump, progress_bar=True):
+def nHits(hit_times, w, thresh_min, thresh_max, pre_window, post_window, jump, progress_bar=True):
     nevents = len(hit_times)
     triggered_hits_index = {}
 
@@ -134,7 +134,7 @@ def nHits(hit_times, w, t, pre_window, post_window, jump, progress_bar=True):
         counts = right - left
 
         # Get the indices of all the hit times that triggered the nHits algorithm
-        trigger_indices = np.where(counts >= t)[0]
+        trigger_indices = np.where((counts >= thresh_min) & (counts < thresh_max))[0]
         if len(trigger_indices) == 0: # Skip if no triggers in event
             continue
 
@@ -159,7 +159,7 @@ def nHits(hit_times, w, t, pre_window, post_window, jump, progress_bar=True):
             t_min = first_hit_time - pre_window
             t_max = last_hit_time + post_window
 
-            indices_in_window = np.where((ht >= t_min) & (ht < t_max))[0]
+            indices_in_window = np.where((ht >= t_min) & (ht <= t_max))[0]
             event_hits.append(indices_in_window)
 
             last_trigger_time = first_hit_time  # or maybe last_hit_time
