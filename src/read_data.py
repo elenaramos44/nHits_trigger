@@ -134,7 +134,7 @@ def nHits(hit_times, w, t, pre_window, post_window, jump, progress_bar=True):
         counts = right - left
 
         # Get the indices of all the hit times that triggered the nHits algorithm
-        trigger_indices = np.where(counts > t)[0]
+        trigger_indices = np.where(counts >= t)[0]
         if len(trigger_indices) == 0: # Skip if no triggers in event
             continue
 
